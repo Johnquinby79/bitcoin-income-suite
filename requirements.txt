@@ -1,6 +1,5 @@
-numpy 
-pandas 
-matplotlib 
-streamlit 
-yfinance 
-scipy 
+streamlit
+numpy
+pandas
+matplotlib
+yfinance
