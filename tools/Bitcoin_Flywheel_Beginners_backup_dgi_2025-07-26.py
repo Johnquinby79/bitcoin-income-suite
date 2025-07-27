@@ -3,6 +3,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import streamlit as st
 import requests
+from datetime import datetime
+import sys
+sys.path.append('.')
+from utils.dgi import calculate_dgi, display_dgi  # Shared DGI util
 
 # Fetch current BTC price (fallback to hardcoded if API fails)
 try:
@@ -202,19 +206,21 @@ if st.button("Run Simulation"):
         # Auto-save current as last for next run
         st.session_state['last_sim'] = {'scenario': scenario, 'df': current_df}
 
-# Static list of assumptions in expander at the bottom
-with st.expander("View Assumptions"):
-    st.markdown("""
-    This tool uses the following assumptions to model how investments add income back into Bitcoin for wealth growth. Some are fixed, while others depend on your inputs:
-    
-    - **BTC Price**: Fetched in real-time (or fallback to ~$118,378 if API fails). Used for all initial BTC buys and ongoing calculations.
-    - **BTC Annual Return**: Your input (default 30%). This is the average yearly growth rate for BTC, drawn from a normal distribution with 50% volatility (fixed) for simulations. Higher inputs make results more bullish.
-    - **Diminishing Returns**: If checked, reduces the mean return by 5% relatively each year (e.g., year 1 full rate, year 2 = rate * 0.95, year 3 = rate * 0.95^2). Not used if unchecked—assumes constant growth.
-    - **Volatility**: Fixed at 50% standard deviation. Simulates market ups/downs; results are averaged over 20 runs (fixed) for smoother projections.
-    - **Dividend Yields**: MSTY fixed at 130%, WNTR at 25% (based on last 12 months, variable in reality). Custom is your input. Weighted by allocations if multiple; only used in Passive Only or Hybrid strategies.
-    - **Leverage Ratio**: Calculated as 1 / (1 - LTV/100) from your LTV input. Only used in Leverage Only or Hybrid; set to 1 (no leverage) for Passive Only.
-    - **Borrowing APR**: Your input in % (divided by 100 for calculations). Debt compounds annually; only used if leverage is applied.
-    - **Buffer Return**: Fixed at 2% annual growth if buffer is included. Buffer covers net deficits (e.g., interest exceeding income) and is optional—set to 0 if unchecked.
-    - **Reinvestment**: Positive net income (dividends minus costs) automatically adds to BTC holdings. Used in all strategies but most impactful in Passive/Hybrid.
-    - **Simulations**: Fixed at 20 Monte Carlo runs per scenario for averaging volatility. No taxes, fees, or liquidations modeled—focus on core BTC flywheel.
-    """)
+        # DGI Integration (example: +10 points for running simulation)
+        if 'dgi_score' not in st.session_state:
+            st.session_state.dgi_score = 50
+        st.session_state.dgi_score = calculate_dgi(10, st.session_state.dgi_score)
+        display_dgi()
+
+        # Export for Suite
+        final_value = current_df['Wealth_USD'].iloc[-1]
+        annualized_yield = ((final_value / initial_investment) ** (1 / years) - 1) * 100 if years > 0 else 0
+        export_text = f"{annualized_yield:.2f}"
+        st.text_area("Copy this Annualized Yield for Income Sweep Simulator", export_text, height=50)
+
+        # PNSD Alignment Expander
+        with st.expander("North Star Reference"):
+            st.markdown("This tool aligns with the Project North Star Document (PNSD) [link to Google Doc]. It supports goals like educating on Bitcoin's compounding and integrating with recommenders for premium-funded flywheels, with DGI for behavioral tracking.")
+
+# Last Update
+st.write(f"Last data refresh: {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")

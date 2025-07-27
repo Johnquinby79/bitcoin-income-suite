@@ -5,6 +5,9 @@ from datetime import datetime, timedelta
 from scipy.stats import norm
 import math
 import pytz
+import sys
+sys.path.append('.')
+from utils.dgi import calculate_dgi, display_dgi  # Shared DGI util
 
 # Friday holidays 2025 (full closures on Fridays)
 friday_holidays = [datetime(2025, 4, 18).date(), datetime(2025, 7, 4).date()]
@@ -270,6 +273,7 @@ def get_recommendations(ticker, contracts):
             # Sort per group by delta
             grouped = candidates.groupby('expiration_fmt').apply(lambda g: g.sort_values('delta').nlargest(3, 'score'))
             # Overall top
+            candidates['expiration'] = candidates['expiration'].apply(lambda x: datetime.strptime(x, '%Y-%m-%d') if isinstance(x, str) else x)
             overall_top = candidates.nlargest(1, 'score')
             if len(overall_top) > 1:
                 overall_top = overall_top.nlargest(1, 'premium_per_contract')
@@ -340,6 +344,12 @@ if st.button("Calculate Recommendations"):
             else:
                 st.write("No recommendations available for yield calculation.")
 
+            # DGI Integration (example: +10 points for running recommendation)
+            if 'dgi_score' not in st.session_state:
+                st.session_state.dgi_score = 50
+            st.session_state.dgi_score = calculate_dgi(10, st.session_state.dgi_score)
+            display_dgi()
+
             # New: Expandable Footer for Risk Metrics
             with st.expander("Understand Risk Metrics"):
                 st.markdown("""
@@ -356,3 +366,7 @@ if st.button("Calculate Recommendations"):
 
 # Last update time
 st.write(f"Last data refresh: {datetime.now().strftime('%m/%d/%Y %H:%M:%S')}")
+
+# PNSD Alignment Expander (outside the button for always visible)
+with st.expander("North Star Reference"):
+    st.markdown("This tool aligns with the Project North Star Document (PNSD) [link to Google Doc]. It supports goals like educating on Bitcoin's compounding and integrating with recommenders for premium-funded flywheels, with DGI for behavioral tracking.")
